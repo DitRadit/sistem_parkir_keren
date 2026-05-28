@@ -1,0 +1,20 @@
+# Build hasil compile
+build/
+dist/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# Log dan temporary
+*.log
+*.tmp
+
+# Java
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
