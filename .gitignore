@@ -3,7 +3,7 @@ build/
 dist/
 
 # NetBeans
-nbproject/private/
+nbproject/
 nbbuild/
 nbdist/
 .nb-gradle/
