@@ -2,16 +2,19 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
+
+import exception.DatabaseException;
+import model.Tiket;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
-
-import util.JDBC;
-
 import java.io.IOException;
-import java.sql.*;
 
+/**
+ * MonitoringServlet
+ * Polling JSON dari qris.jsp untuk cek status bayar
+ */
 public class MonitoringServlet
         extends HttpServlet {
 
@@ -21,37 +24,42 @@ public class MonitoringServlet
             HttpServletResponse resp)
             throws ServletException, IOException {
 
+        String idTiket = req.getParameter("idTiket");
+
+        resp.setContentType("application/json");
+        resp.setCharacterEncoding("UTF-8");
+
+        if (idTiket == null || idTiket.isBlank()) {
+            resp.getWriter().write(
+                "{\"statusBayar\":\"ERROR\"}"
+            );
+            return;
+        }
+
         try {
 
-            Connection con =
-                JDBC.getConnection();
+            // Cari tiket via Model
+            Tiket tiket = new Tiket()
+                .find(idTiket.trim());
 
-            String sql =
-                "SELECT COUNT(*) total " +
-                "FROM tiket " +
-                "WHERE status='AKTIF'";
+            String statusBayar =
+                tiket.getStatusBayar();
 
-            PreparedStatement ps =
-                con.prepareStatement(sql);
-
-            ResultSet rs =
-                ps.executeQuery();
-
-            if (rs.next()) {
-
-                req.setAttribute(
-                    "jumlah",
-                    rs.getInt("total")
-                );
+            if (statusBayar == null) {
+                statusBayar = "BELUM_BAYAR";
             }
 
-            req.getRequestDispatcher(
-                "dashboard.jsp"
-            ).forward(req, resp);
+            resp.getWriter().write(
+                "{\"statusBayar\":\"" +
+                statusBayar + "\"}"
+            );
 
         } catch (Exception e) {
 
-            e.printStackTrace();
+            // Tiket tidak ditemukan atau DB error
+            resp.getWriter().write(
+                "{\"statusBayar\":\"ERROR\"}"
+            );
         }
     }
 }

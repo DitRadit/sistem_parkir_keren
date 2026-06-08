@@ -2,19 +2,23 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
 
-import javax.servlet.http.*;
+import exception.DatabaseException;
+import exception.TiketException;
+import model.Tiket;
 
 import org.json.JSONObject;
 
-import util.JDBC;
-
+import javax.servlet.*;
+import javax.servlet.http.*;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 
+/**
+ * MidtransCallbackServlet
+ * Webhook dari Midtrans → update status tiket LUNAS
+ */
 public class MidtransCallbackServlet
         extends HttpServlet {
 
@@ -22,63 +26,69 @@ public class MidtransCallbackServlet
     protected void doPost(
             HttpServletRequest req,
             HttpServletResponse resp)
-            throws IOException {
+            throws ServletException, IOException {
+
+        StringBuilder sb = new StringBuilder();
+        BufferedReader reader = req.getReader();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
 
         try {
 
-            StringBuilder json =
-                new StringBuilder();
-
-            BufferedReader reader =
-                req.getReader();
-
-            String line;
-
-            while ((line = reader.readLine())
-                    != null) {
-
-                json.append(line);
-            }
-
-            JSONObject object =
-                new JSONObject(
-                    json.toString()
-                );
+            JSONObject json =
+                new JSONObject(sb.toString());
 
             String orderId =
-                object.getString(
-                    "order_id"
+                json.getString("order_id");
+
+            String txStatus =
+                json.getString("transaction_status");
+
+            String fraudStatus =
+                json.optString("fraud_status", "accept");
+
+            boolean lunas =
+                (txStatus.equals("settlement") ||
+                 txStatus.equals("capture")) &&
+                fraudStatus.equals("accept");
+
+            if (lunas) {
+
+                // orderId format: "SQR-<idTiket>"
+                String idTiket =
+                    orderId.replace("SQR-", "");
+
+                // Update via Model Tiket
+                Tiket tiket = new Tiket();
+                tiket.setIdTiket(idTiket);
+                tiket.setStatusBayar("LUNAS");
+                tiket.updateStatusBayar("LUNAS");
+
+                System.out.println(
+                    "[Callback] Tiket " + idTiket +
+                    " LUNAS."
                 );
-
-            String status =
-                object.getString(
-                    "transaction_status"
-                );
-
-            if (status.equals("settlement")) {
-
-                Connection con =
-                    JDBC.getConnection();
-
-                String sql =
-                    "UPDATE pembayaran " +
-                    "SET status_bayar='LUNAS' " +
-                    "WHERE order_id=?";
-
-                PreparedStatement ps =
-                    con.prepareStatement(sql);
-
-                ps.setString(1, orderId);
-
-                ps.executeUpdate();
-
-                ps.close();
-                con.close();
             }
+
+            resp.setStatus(200);
+            resp.setContentType("application/json");
+            resp.getWriter().write("{\"status\":\"ok\"}");
+
+        } catch (DatabaseException e) {
+
+            e.printStackTrace();
+            resp.setStatus(500);
+            resp.getWriter().write(
+                "{\"error\":\"" + e.getMessage() + "\"}"
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
+            resp.setStatus(500);
         }
     }
 }

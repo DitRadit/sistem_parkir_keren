@@ -2,8 +2,9 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
 
+import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.IOException;
 
@@ -14,13 +15,19 @@ public class LogoutServlet
     protected void doGet(
             HttpServletRequest req,
             HttpServletResponse resp)
-            throws IOException {
+            throws ServletException, IOException {
 
-        HttpSession session =
-            req.getSession();
+        // Hapus semua data session
+        // Sesuai slide dosen hal. 43:
+        // request.getSession().invalidate()
+        HttpSession session = req.getSession(false);
 
-        session.invalidate();
+        if (session != null) {
+            session.invalidate();
+        }
 
-        resp.sendRedirect("login.jsp");
+        resp.sendRedirect(
+            req.getContextPath() + "/login.jsp"
+        );
     }
 }

@@ -2,23 +2,31 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
 
+import exception.DatabaseException;
+import exception.PembayaranException;
+import exception.TiketException;
+import model.Tiket;
+import util.JDBC;
+import util.MidtransUtil;
+import util.QRUtil;
+
+import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
+
+import com.midtrans.httpclient.SnapApi;
 import com.midtrans.httpclient.error.MidtransError;
-import com.midtrans.service.MidtransSnapApi;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
-
-import org.json.JSONObject;
-
-import util.JDBC;
-import util.MidtransUtil;
-
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.util.UUID;
 
 public class GenerateQRISServlet
         extends HttpServlet {
@@ -29,92 +37,127 @@ public class GenerateQRISServlet
             HttpServletResponse resp)
             throws ServletException, IOException {
 
+        if (!isLoggedIn(req, resp)) return;
+
+        String idTiket     = req.getParameter("idTiket");
+        String platNomor   = req.getParameter("platNomor");
+        String jenis       = req.getParameter("jenis");
+        String totalBiayaStr = req.getParameter("totalBiaya");
+        String durasiJam   = req.getParameter("durasiJam");
+
         try {
+
+            double totalBiaya =
+                Double.parseDouble(totalBiayaStr);
 
             MidtransUtil.init();
 
-            String idTiket =
-                req.getParameter("idTiket");
+            // Buat parameter Midtrans Snap
+            Map<String, Object> params = new HashMap<>();
 
-            double total =
-                Double.parseDouble(
-                    req.getParameter("total")
-                );
+            Map<String, Object> txDetail = new HashMap<>();
+            txDetail.put("order_id", "SQR-" + idTiket);
+            txDetail.put("gross_amount", (long) totalBiaya);
 
-            String orderId =
-                UUID.randomUUID().toString();
+            List<String> payments = new ArrayList<>();
+            payments.add("qris");
+            payments.add("gopay");
 
-            JSONObject detail =
-                new JSONObject();
+            params.put("transaction_details", txDetail);
+            params.put("enabled_payments", payments);
 
-            detail.put(
-                "order_id",
-                orderId
+            JSONObject result =
+                SnapApi.createTransaction(params);
+            String snapToken =
+                result.getString("token");
+
+            String redirectUrl =
+                result.getString("redirect_url");
+
+            // Generate QR image dari redirect URL
+            String folderQR =
+                getServletContext().getRealPath("/qr/");
+
+            QRUtil.generateQRCode(
+                redirectUrl,
+                folderQR + "pay-" + idTiket + ".png"
             );
 
-            detail.put(
-                "gross_amount",
-                total
-            );
+            // Update tiket di DB via Model
+            Tiket tiket = new Tiket();
+            tiket.setIdTiket(idTiket);
+            tiket.setSnapToken(snapToken);
+            tiket.setTotalBiaya(totalBiaya);
+            tiket.update(); // UPDATE snap_token & total_biaya
 
-            JSONObject transaction =
-                new JSONObject();
-
-            transaction.put(
-                "transaction_details",
-                detail
-            );
-
-            String responseMidtrans =
-                MidtransSnapApi
-                    .createTransaction(
-                        transaction
-                    );
-
-            JSONObject json =
-                new JSONObject(
-                    responseMidtrans
-                );
-
-            String qrUrl =
-                json.getJSONArray("actions")
-                    .getJSONObject(0)
-                    .getString("url");
-
-            Connection con =
-                JDBC.getConnection();
-
-            String sql =
-                "INSERT INTO pembayaran " +
-                "(order_id, id_tiket, total, status_bayar) " +
-                "VALUES (?, ?, ?, ?)";
-
-            PreparedStatement ps =
-                con.prepareStatement(sql);
-
-            ps.setString(1, orderId);
-            ps.setString(2, idTiket);
-            ps.setDouble(3, total);
-            ps.setString(4, "BELUM BAYAR");
-
-            ps.executeUpdate();
-
+            // Kirim ke qris.jsp
+            req.setAttribute("idTiket",   idTiket);
+            req.setAttribute("platNomor", platNomor);
+            req.setAttribute("jenis",     jenis);
+            req.setAttribute("totalBiaya", totalBiaya);
+            req.setAttribute("durasiJam", durasiJam);
+            req.setAttribute("snapToken", snapToken);
             req.setAttribute(
-                "qrUrl",
-                qrUrl
+                "qrImage",
+                req.getContextPath() +
+                "/qr/pay-" + idTiket + ".png"
             );
 
-            req.getRequestDispatcher(
-                "payment.jsp"
-            ).forward(req, resp);
+            req.getRequestDispatcher("qris.jsp")
+               .forward(req, resp);
 
-        } catch (
-                IOException |
-                MidtransError |
-                java.sql.SQLException e
-        ) {
+        } catch (MidtransError e) {
 
             e.printStackTrace();
+            req.setAttribute(
+                "error",
+                "Gagal membuat transaksi Midtrans: " +
+                e.getMessage()
+            );
+            req.setAttribute("idTiket",    idTiket);
+            req.setAttribute("platNomor",  platNomor);
+            req.setAttribute("jenis",      jenis);
+            req.setAttribute("totalBiaya", totalBiayaStr);
+            req.setAttribute("durasiJam",  durasiJam);
+            req.getRequestDispatcher("pembayaran.jsp")
+               .forward(req, resp);
+
+        } catch (DatabaseException e) {
+
+            e.printStackTrace();
+            req.setAttribute(
+                "error",
+                "Error database: " + e.getMessage()
+            );
+            req.getRequestDispatcher("pembayaran.jsp")
+               .forward(req, resp);
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+            req.setAttribute(
+                "error",
+                "Terjadi kesalahan: " + e.getMessage()
+            );
+            req.getRequestDispatcher("pembayaran.jsp")
+               .forward(req, resp);
         }
+    }
+
+    private boolean isLoggedIn(
+            HttpServletRequest req,
+            HttpServletResponse resp)
+            throws IOException {
+
+        HttpSession session = req.getSession(false);
+
+        if (session == null ||
+                session.getAttribute("admin") == null) {
+
+            resp.sendRedirect("login.jsp");
+            return false;
+        }
+
+        return true;
     }
 }

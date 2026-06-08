@@ -2,18 +2,37 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
+
+import exception.AuthException;
+import exception.DatabaseException;
+import model.Admin;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
-
-import util.JDBC;
-
 import java.io.IOException;
-import java.sql.*;
 
 public class LoginServlet
         extends HttpServlet {
+
+    @Override
+    protected void doGet(
+            HttpServletRequest req,
+            HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        // Kalau sudah login, langsung ke dashboard
+        if (req.getSession(false) != null &&
+                req.getSession(false)
+                   .getAttribute("admin") != null) {
+
+            resp.sendRedirect("dashboard");
+            return;
+        }
+
+        req.getRequestDispatcher("login.jsp")
+           .forward(req, resp);
+    }
 
     @Override
     protected void doPost(
@@ -23,62 +42,55 @@ public class LoginServlet
 
         String username =
             req.getParameter("username");
-
         String password =
             req.getParameter("password");
 
+        if (username == null || username.isBlank() ||
+                password == null || password.isBlank()) {
+
+            req.setAttribute(
+                "error",
+                "Username dan password wajib diisi."
+            );
+            req.getRequestDispatcher("login.jsp")
+               .forward(req, resp);
+            return;
+        }
+
         try {
 
-            Connection con =
-                JDBC.getConnection();
+            // Autentikasi via Model Admin
+            // Logika DB ada di model, bukan di sini
+            Admin admin = new Admin()
+                .login(username.trim(), password.trim());
 
-            String sql =
-                "SELECT * FROM admin " +
-                "WHERE username=? " +
-                "AND password=?";
+            // Login berhasil: simpan ke session
+            req.getSession(true)
+               .setAttribute("admin", admin.getNama());
 
-            PreparedStatement ps =
-                con.prepareStatement(sql);
+            req.getSession()
+               .setAttribute("role", admin.getRole().name());
 
-            ps.setString(1, username);
-            ps.setString(2, password);
+            resp.sendRedirect("dashboard");
 
-            ResultSet rs =
-                ps.executeQuery();
+        } catch (AuthException e) {
 
-            if (rs.next()) {
+            // Login gagal (username/password salah)
+            req.setAttribute("error", e.getMessage());
+            req.getRequestDispatcher("login.jsp")
+               .forward(req, resp);
 
-                HttpSession session =
-                    req.getSession();
+        } catch (DatabaseException e) {
 
-                session.setAttribute(
-                    "admin",
-                    rs.getString("nama")
-                );
-
-                resp.sendRedirect(
-                    "dashboard"
-                );
-
-            } else {
-
-                req.setAttribute(
-                    "error",
-                    "Login gagal"
-                );
-
-                req.getRequestDispatcher(
-                    "login.jsp"
-                ).forward(req, resp);
-            }
-
-            rs.close();
-            ps.close();
-            con.close();
-
-        } catch (Exception e) {
-
+            // Error koneksi database
             e.printStackTrace();
+            req.setAttribute(
+                "error",
+                "Terjadi masalah pada server database. " +
+                "Coba lagi nanti."
+            );
+            req.getRequestDispatcher("login.jsp")
+               .forward(req, resp);
         }
     }
 }

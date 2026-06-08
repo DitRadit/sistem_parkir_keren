@@ -2,7 +2,7 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Exception.java to edit this template
  */
-package exception;
+ package exception;
 
 public class TiketException extends Exception {
 
@@ -19,5 +19,9 @@ public class TiketException extends Exception {
 
     public int getCode() {
         return code;
+    }
+
+    public boolean isParkingFull() {
+        return code == PARKIR_PENUH;
     }
 }

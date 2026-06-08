@@ -2,105 +2,91 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
  */
-package controller;
+package Controller;
+
+import exception.DatabaseException;
+import exception.TiketException;
+import model.Tiket;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
-
-import util.JDBC;
-
 import java.io.IOException;
-import java.sql.*;
-import java.time.LocalDateTime;
 
+/**
+ * CheckoutServlet
+ * Cek status bayar LUNAS → buka palang → redirect dashboard
+ */
 public class CheckoutServlet
         extends HttpServlet {
 
     @Override
-    protected void doPost(
+    protected void doGet(
             HttpServletRequest req,
             HttpServletResponse resp)
             throws ServletException, IOException {
 
+        if (!isLoggedIn(req, resp)) return;
+
+        String idTiket = req.getParameter("idTiket");
+
         try {
 
-            String idTiket =
-                req.getParameter("idTiket");
+            // Cari tiket via Model
+            Tiket tiket = new Tiket()
+                .find(idTiket);
 
-            Connection con =
-                JDBC.getConnection();
+            // checkout() di Model sudah cek LUNAS
+            // dan throw TiketException jika belum
+            tiket.checkout();
 
-            String sql =
-                "SELECT * FROM pembayaran " +
-                "WHERE id_tiket=?";
+            System.out.println(
+                "[Checkout] Palang dibuka: " + idTiket
+            );
 
-            PreparedStatement ps =
-                con.prepareStatement(sql);
+            req.getSession().setAttribute(
+                "sukses",
+                "Kendaraan " + tiket.getPlatNomor() +
+                " berhasil keluar. Palang dibuka!"
+            );
 
-            ps.setString(1, idTiket);
+            resp.sendRedirect(
+                req.getContextPath() + "/dashboard"
+            );
 
-            ResultSet rs =
-                ps.executeQuery();
+        } catch (TiketException e) {
 
-            if (rs.next()) {
+            // Belum lunas atau tiket tidak ditemukan
+            req.setAttribute("error", e.getMessage());
+            req.setAttribute("idTiket", idTiket);
+            req.getRequestDispatcher("qris.jsp")
+               .forward(req, resp);
 
-                String status =
-                    rs.getString(
-                        "status_bayar"
-                    );
-
-                if (status.equals("LUNAS")) {
-
-                    String update =
-                        "UPDATE tiket " +
-                        "SET waktu_keluar=?, " +
-                        "status='SELESAI' " +
-                        "WHERE id_tiket=?";
-
-                    PreparedStatement ps2 =
-                        con.prepareStatement(
-                            update
-                        );
-
-                    ps2.setTimestamp(
-                        1,
-                        Timestamp.valueOf(
-                            LocalDateTime.now()
-                        )
-                    );
-
-                    ps2.setString(
-                        2,
-                        idTiket
-                    );
-
-                    ps2.executeUpdate();
-
-                    req.setAttribute(
-                        "message",
-                        "Palang terbuka"
-                    );
-
-                    req.getRequestDispatcher(
-                        "success.jsp"
-                    ).forward(req, resp);
-
-                } else {
-
-                    req.setAttribute(
-                        "error",
-                        "Belum bayar"
-                    );
-
-                    req.getRequestDispatcher(
-                        "dashboard.jsp"
-                    ).forward(req, resp);
-                }
-            }
-
-        } catch (Exception e) {
+        } catch (DatabaseException e) {
 
             e.printStackTrace();
+            req.setAttribute(
+                "error",
+                "Error database: " + e.getMessage()
+            );
+            req.getRequestDispatcher("scan_karcis.jsp")
+               .forward(req, resp);
         }
+    }
+
+    private boolean isLoggedIn(
+            HttpServletRequest req,
+            HttpServletResponse resp)
+            throws IOException {
+
+        HttpSession session = req.getSession(false);
+
+        if (session == null ||
+                session.getAttribute("admin") == null) {
+
+            resp.sendRedirect("login.jsp");
+            return false;
+        }
+
+        return true;
     }
 }
