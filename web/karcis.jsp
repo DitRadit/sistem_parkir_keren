@@ -36,27 +36,45 @@
     }
     
     @media print {
-        body {
-            background: #ffffff !important;
+        /* Paksa browser cetak background & warna */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        .col-md-2, main > div:not(.printable-zone), .no-print, header, nav {
-            display: none !important;
+
+        /* Sembunyikan semua elemen dengan visibility — tidak merusak layout tree */
+        body * {
+            visibility: hidden !important;
         }
-        .col-md-10 {
+
+        /* Tampilkan hanya printable-zone dan semua isinya */
+        .printable-zone,
+        .printable-zone * {
+            visibility: visible !important;
+        }
+
+        /* Posisikan printable-zone ke pojok kiri atas halaman cetak */
+        .printable-zone {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 20px !important;
         }
-        .printable-zone {
-            display: block !important;
+
+        body {
+            background: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
         }
+
         .ticket-card {
-            border: none !important;
+            border: 2px dashed #cbd5e1 !important;
             box-shadow: none !important;
-            max-width: 100% !important;
-            padding: 10px !important;
+            max-width: 380px !important;
+            margin: 20px auto !important;
+            padding: 20px !important;
         }
     }
 </style>

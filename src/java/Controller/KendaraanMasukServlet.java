@@ -14,7 +14,7 @@ import javax.servlet.http.*;
 import java.io.IOException;
 import java.io.File;
 import java.util.UUID;
-import javax.servlet.annotation.WebServlet; 
+import javax.servlet.annotation.WebServlet;
 
 @WebServlet(name = "KendaraanMasukServlet", urlPatterns = {"/KendaraanMasukServlet"})
 public class KendaraanMasukServlet extends HttpServlet {
@@ -28,7 +28,6 @@ public class KendaraanMasukServlet extends HttpServlet {
         if (!isLoggedIn(req, resp)) return;
 
         try {
-            // Mengambil jumlah kendaraan terparkir secara real-time dari database
             Tiket tiketModel = new Tiket();
             int jumlahAktif  = tiketModel.hitungAktif();
 
@@ -53,7 +52,7 @@ public class KendaraanMasukServlet extends HttpServlet {
         if (!isLoggedIn(req, resp)) return;
 
         String platNomor = req.getParameter("platNomor");
-        String jenis = req.getParameter("jenis");
+        String jenis     = req.getParameter("jenis");
 
         if (platNomor == null || platNomor.isBlank() ||
                 jenis == null || jenis.isBlank()) {
@@ -71,28 +70,31 @@ public class KendaraanMasukServlet extends HttpServlet {
                                  .substring(0, 12)
                                  .toUpperCase();
 
-            // 2. Buat & simpan data tiket ke Database (Kapasitas dicek otomatis di dalam model)
+            // 2. Simpan tiket ke DB
             Tiket tiket = new Tiket(
                 idTiket,
                 platNomor.toUpperCase().trim(),
                 jenis
             );
-            tiket.insert(); // Akan melempar TiketException jika kapasitas mall penuh
+            tiket.insert();
 
-            // 3. FIX: Pastikan folder 'qr' di dalam server Tomcat sudah terbuat
-            String folderQR = getServletContext().getRealPath("/qr");
-            if (folderQR != null) {
-                File directory = new File(folderQR);
-                if (!directory.exists()) {
-                    directory.mkdirs(); // Membuat folder /qr/ otomatis jika belum ada
-                }
+            // 3. FIX: Resolve folder /qr/ dengan fallback aman
+            String webRoot = getServletContext().getRealPath("/");
+            if (webRoot == null) {
+                webRoot = System.getProperty("catalina.home") + "/webapps/ROOT/";
+            }
+            String folderQR = webRoot + "qr";
+
+            File directory = new File(folderQR);
+            if (!directory.exists()) {
+                directory.mkdirs();
             }
 
-            // 4. Generate QR Code fisik ke dalam folder
+            // 4. Generate QR Code ke folder
             String fullPathQR = folderQR + File.separator + idTiket + ".png";
             QRUtil.generateQRCode(idTiket, fullPathQR);
 
-            // 5. Kirim data sukses ke karcis.jsp
+            // 5. Kirim data ke karcis.jsp
             req.setAttribute("idTiket",   idTiket);
             req.setAttribute("platNomor", platNomor.toUpperCase().trim());
             req.setAttribute("jenis",     jenis);
@@ -101,22 +103,19 @@ public class KendaraanMasukServlet extends HttpServlet {
             req.getRequestDispatcher("karcis.jsp").forward(req, resp);
 
         } catch (TiketException e) {
-            // Parkir penuh atau tiket bermasalah
             req.setAttribute("error", e.getMessage());
             req.setAttribute("parkirPenuh", e.isParkingFull());
-            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
+            doGet(req, resp);
 
         } catch (DatabaseException e) {
-            // Error SQL / Koneksi DB
             e.printStackTrace();
             req.setAttribute("error", "Gagal menyimpan transaksi ke database: " + e.getMessage());
-            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
+            doGet(req, resp);
 
         } catch (Exception e) {
-            // Menangkap error ImageOutputStream atau kegagalan engine QR
             e.printStackTrace();
-            req.setAttribute("error", "Sistem gagal generate QR Code berkas: " + e.getMessage());
-            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
+            req.setAttribute("error", "Sistem gagal generate QR Code: " + e.getMessage());
+            doGet(req, resp);
         }
     }
 

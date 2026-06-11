@@ -1,21 +1,21 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%
-    // Keamanan Sesi Operator
     if(session.getAttribute("admin") == null){
-        response.sendRedirect("login.jsp"); 
+        response.sendRedirect("login.jsp");
         return;
     }
 
-    // Menangkap data transaksi dari GenerateQRISServlet / CheckoutServlet
-    String idTiket = (String) request.getAttribute("idTiket");
+    String idTiket   = (String) request.getAttribute("idTiket");
     String platNomor = (String) request.getAttribute("platNomor");
-    String jenis = (String) request.getAttribute("jenis");
-    Integer totalBiaya = (Integer) request.getAttribute("totalBiaya");
-    
-    // qrCodeUrl bisa berupa string Base64 gambar QRIS atau URL gambar QR dari Midtrans Snap
-    String qrCodeUrl = (String) request.getAttribute("qrCodeUrl"); 
+    String jenis     = (String) request.getAttribute("jenis");
 
-    // Proteksi jika diakses tanpa data
+    // FIX: pakai Number supaya aman baik Double maupun Integer
+    Object totalBiayaRaw = request.getAttribute("totalBiaya");
+    long totalBiaya = totalBiayaRaw != null ? ((Number) totalBiayaRaw).longValue() : 0;
+
+    // FIX: nama attribute sekarang "qrImage" sesuai dengan yang dikirim GenerateQRISServlet
+    String qrCodeUrl = (String) request.getAttribute("qrImage");
+
     if(idTiket == null) {
         response.sendRedirect("dashboard");
         return;
@@ -58,7 +58,7 @@
         <%@ include file="includes/sidebar.jsp" %>
 
         <main class="col-md-10 ms-sm-auto px-md-5 py-4">
-            
+
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <p class="text-muted-custom mb-0">TERMINAL PEMBAYARAN DIGITAL</p>
@@ -73,19 +73,19 @@
 
             <div class="row g-4 justify-content-center">
                 <div class="col-md-6 col-lg-5">
-                    
+
                     <div class="qris-card text-center">
-                        
+
                         <div class="qris-logo-container d-flex align-items-center justify-content-center gap-2">
                             <span class="fw-extrabold fs-4 tracking-tight text-primary"><i class="fas fa-qrcode me-1"></i>QRIS</span>
                             <span class="text-muted small">| GPN Bersama</span>
                         </div>
 
                         <div class="p-4 p-md-5 bg-white bg-opacity-75">
-                            
+
                             <span class="text-muted small text-uppercase d-block mb-1 fw-bold tracking-wider">TOTAL TARIF PARKIR</span>
                             <h1 class="fw-extrabold text-success mb-4" style="font-size: 2.5rem;">
-                                Rp <%= String.format("%,d", totalBiaya != null ? totalBiaya : 0).replace(',', '.') %>
+                                Rp <%= String.format("%,d", totalBiaya).replace(',', '.') %>
                             </h1>
 
                             <div class="qr-frame mb-4">
@@ -124,7 +124,7 @@
                         <div class="p-4 bg-light bg-opacity-50 border-top">
                             <form action="ValidasiTiketServlet" method="POST">
                                 <input type="hidden" name="idTiket" value="<%= idTiket %>">
-                                <button type="submit" class="btn btn-primary rounded-pill py-2.5 fw-bold w-100 shadow-sm"
+                                <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold w-100 shadow-sm"
                                         style="background: linear-gradient(135deg, #00897b, #00bfa5); border: none;">
                                     <i class="fas fa-sync-alt me-2"></i> VERIFIKASI STATUS BAYAR
                                 </button>

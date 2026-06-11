@@ -13,9 +13,14 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.IOException;
 import java.io.InputStream;
-import javax.servlet.annotation.WebServlet; 
+import javax.servlet.annotation.MultipartConfig;
+import javax.servlet.annotation.WebServlet;
 
 @WebServlet(name = "ScanKarcisServlet", urlPatterns = {"/ScanKarcisServlet"})
+@MultipartConfig(
+    maxFileSize    = 5 * 1024 * 1024,   // maks 5 MB per file
+    maxRequestSize = 10 * 1024 * 1024   // maks 10 MB total request
+)
 
 /**
  *
@@ -24,7 +29,7 @@ import javax.servlet.annotation.WebServlet;
 
 /**
  * ScanKarcisServlet
- * Terima upload foto karcis → decode QR → forward ke ValidasiTiketServlet
+ * Terima upload foto karcis → decode QR → forward ke CheckoutServlet
  */
 public class ScanKarcisServlet
         extends HttpServlet {
@@ -49,7 +54,8 @@ public class ScanKarcisServlet
 
         if (!isLoggedIn(req, resp)) return;
 
-        Part filePart = req.getPart("fotoKarcis");
+        // FIX: nama field disesuaikan dengan form di scan_karcis.jsp (name="qrImage")
+        Part filePart = req.getPart("qrImage");
 
         if (filePart == null ||
                 filePart.getSize() == 0) {
@@ -78,10 +84,8 @@ public class ScanKarcisServlet
                 );
             }
 
-            // Forward ke ValidasiTiketServlet
-            req.setAttribute("idTiket", idTiket.trim());
-            req.getRequestDispatcher("/validasi")
-               .forward(req, resp);
+            // Forward ke CheckoutServlet untuk hitung tarif & generate QRIS
+            resp.sendRedirect(req.getContextPath() + "/CheckoutServlet?idTiket=" + idTiket.trim());
 
         } catch (Exception e) {
 
@@ -89,7 +93,7 @@ public class ScanKarcisServlet
                 "error",
                 "Gagal membaca QR Code: " +
                 e.getMessage() +
-                ". Pastikan foto jelas."
+                ". Pastikan foto jelas dan QR terlihat penuh."
             );
             req.getRequestDispatcher("scan_karcis.jsp")
                .forward(req, resp);
