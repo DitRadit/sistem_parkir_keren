@@ -13,6 +13,9 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.servlet.annotation.WebServlet; 
+
+@WebServlet(name = "ScanKarcisServlet", urlPatterns = {"/ScanKarcisServlet"})
 
 /**
  *

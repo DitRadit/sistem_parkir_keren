@@ -1,92 +1,100 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package Controller;
 
-import exception.DatabaseException;
-import exception.TiketException;
-import model.Tiket;
-
-import javax.servlet.*;
-import javax.servlet.http.*;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Timestamp;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
-/**
- * CheckoutServlet
- * Cek status bayar LUNAS → buka palang → redirect dashboard
- */
-public class CheckoutServlet
-        extends HttpServlet {
+@WebServlet(name = "CheckoutServlet", urlPatterns = {"/CheckoutServlet"})
+public class CheckoutServlet extends HttpServlet {
+
+    // Method gampang untuk koneksi database sistem_parkir_qren
+    private Connection getConnection() throws Exception {
+        Class.forName("com.mysql.cj.jdbc.Driver");
+        return DriverManager.getConnection("jdbc:mysql://localhost:3306/sistem_parkir_qren", "root", "");
+    }
 
     @Override
-    protected void doGet(
-            HttpServletRequest req,
-            HttpServletResponse resp)
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        
+        // 1. Validasi Sesi Login Operator
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("admin") == null) {
+            response.sendRedirect("login.jsp");
+            return;
+        }
 
-        if (!isLoggedIn(req, resp)) return;
+        // 2. Ambil parameter idTiket yang dikirim dari tombol klik di dashboard
+        String idTiket = request.getParameter("idTiket");
+        if (idTiket == null || idTiket.isBlank()) {
+            response.sendRedirect("dashboard");
+            return;
+        }
 
-        String idTiket = req.getParameter("idTiket");
+        try (Connection conn = getConnection()) {
+            // 3. Query ambil data spesifik berdasarkan id_tiket
+            String sql = "SELECT * FROM tiket WHERE id_tiket = ?";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setString(1, idTiket);
+            ResultSet rs = ps.executeQuery();
 
-        try {
+            if (rs.next()) {
+                // Tarik data asli dari kolom database
+                String platNomor = rs.getString("plat_nomor");
+                String jenis = rs.getString("jenis");
+                Timestamp waktuMasuk = rs.getTimestamp("waktu_masuk");
+                Timestamp waktuSekarang = new Timestamp(System.currentTimeMillis());
 
-            // Cari tiket via Model
-            Tiket tiket = new Tiket()
-                .find(idTiket);
+                // 4. Hitung Tarif Parkir Otomatis Berdasarkan Waktu
+                long selisihMilidetik = waktuSekarang.getTime() - waktuMasuk.getTime();
+                long totalJam = selisihMilidetik / (1000 * 60 * 60);
+                
+                // Jika parkir kurang dari 1 jam (seperti di testing kamu), bulatkan tetap dihitung 1 jam
+                if (totalJam < 1) {
+                    totalJam = 1;
+                }
 
-            // checkout() di Model sudah cek LUNAS
-            // dan throw TiketException jika belum
-            tiket.checkout();
+                // Set tarif mall standar: Mobil Rp 5.000/jam, Motor Rp 2.000/jam
+                int tarifPerJam = jenis.equalsIgnoreCase("Mobil") ? 5000 : 2000;
+                int totalBiaya = (int) (totalJam * tarifPerJam);
 
-            System.out.println(
-                "[Checkout] Palang dibuka: " + idTiket
-            );
+                // 5. Kirim data lengkap ke halaman qris.jsp agar tidak NULL lagi
+                request.setAttribute("idTiket", idTiket);
+                request.setAttribute("platNomor", platNomor);
+                request.setAttribute("jenis", jenis);
+                request.setAttribute("totalBiaya", totalBiaya);
+                
+                // INTEGRASI LIVE PREVIEW QRIS: Menggunakan Open API QR untuk simulasi QRIS dinamis di layar
+                String mockQrisUrl = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=QRIS_MALL_PAYMENT_" + idTiket + "_" + totalBiaya;
+                request.setAttribute("qrCodeUrl", mockQrisUrl);
 
-            req.getSession().setAttribute(
-                "sukses",
-                "Kendaraan " + tiket.getPlatNomor() +
-                " berhasil keluar. Palang dibuka!"
-            );
+                // Lempar ke halaman tampilan qris.jsp
+                request.getRequestDispatcher("qris.jsp").forward(request, response);
 
-            resp.sendRedirect(
-                req.getContextPath() + "/dashboard"
-            );
+            } else {
+                // Jika ID tiket misterius tidak ditemukan di DB
+                request.setAttribute("error", "Data tiket tidak ditemukan di sistem.");
+                request.getRequestDispatcher("dashboard").forward(request, response);
+            }
 
-        } catch (TiketException e) {
-
-            // Belum lunas atau tiket tidak ditemukan
-            req.setAttribute("error", e.getMessage());
-            req.setAttribute("idTiket", idTiket);
-            req.getRequestDispatcher("qris.jsp")
-               .forward(req, resp);
-
-        } catch (DatabaseException e) {
-
+        } catch (Exception e) {
             e.printStackTrace();
-            req.setAttribute(
-                "error",
-                "Error database: " + e.getMessage()
-            );
-            req.getRequestDispatcher("scan_karcis.jsp")
-               .forward(req, resp);
+            response.sendRedirect("dashboard");
         }
     }
 
-    private boolean isLoggedIn(
-            HttpServletRequest req,
-            HttpServletResponse resp)
-            throws IOException {
-
-        HttpSession session = req.getSession(false);
-
-        if (session == null ||
-                session.getAttribute("admin") == null) {
-
-            resp.sendRedirect("login.jsp");
-            return false;
-        }
-
-        return true;
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        doGet(request, response);
     }
 }

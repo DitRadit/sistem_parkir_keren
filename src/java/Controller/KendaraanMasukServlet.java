@@ -12,10 +12,12 @@ import util.QRUtil;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import java.io.IOException;
+import java.io.File;
 import java.util.UUID;
+import javax.servlet.annotation.WebServlet; 
 
-public class KendaraanMasukServlet
-        extends HttpServlet {
+@WebServlet(name = "KendaraanMasukServlet", urlPatterns = {"/KendaraanMasukServlet"})
+public class KendaraanMasukServlet extends HttpServlet {
 
     @Override
     protected void doGet(
@@ -26,22 +28,20 @@ public class KendaraanMasukServlet
         if (!isLoggedIn(req, resp)) return;
 
         try {
-
+            // Mengambil jumlah kendaraan terparkir secara real-time dari database
             Tiket tiketModel = new Tiket();
-            int jumlahAktif  =
-                tiketModel.hitungAktif();
+            int jumlahAktif  = tiketModel.hitungAktif();
 
             req.setAttribute("jumlahAktif",   jumlahAktif);
             req.setAttribute("kapasitasMaks", Tiket.KAPASITAS_MAKS);
-            req.setAttribute("parkirPenuh",
-                jumlahAktif >= Tiket.KAPASITAS_MAKS);
+            req.setAttribute("parkirPenuh",   jumlahAktif >= Tiket.KAPASITAS_MAKS);
 
         } catch (DatabaseException e) {
             e.printStackTrace();
+            req.setAttribute("error", "Gagal memuat status kapasitas parkir.");
         }
 
-        req.getRequestDispatcher("kendaraan_masuk.jsp")
-           .forward(req, resp);
+        req.getRequestDispatcher("kendaraan_masuk.jsp").forward(req, resp);
     }
 
     @Override
@@ -52,96 +52,71 @@ public class KendaraanMasukServlet
 
         if (!isLoggedIn(req, resp)) return;
 
-        String platNomor =
-            req.getParameter("platNomor");
-        String jenis =
-            req.getParameter("jenis");
+        String platNomor = req.getParameter("platNomor");
+        String jenis = req.getParameter("jenis");
 
         if (platNomor == null || platNomor.isBlank() ||
                 jenis == null || jenis.isBlank()) {
 
-            req.setAttribute(
-                "error",
-                "Plat nomor dan jenis wajib diisi."
-            );
+            req.setAttribute("error", "Plat nomor dan jenis wajib diisi.");
             doGet(req, resp);
             return;
         }
 
         try {
+            // 1. Generate ID tiket unik (12 karakter)
+            String idTiket = UUID.randomUUID()
+                                 .toString()
+                                 .replace("-", "")
+                                 .substring(0, 12)
+                                 .toUpperCase();
 
-            // Generate ID tiket unik
-            String idTiket =
-                UUID.randomUUID()
-                    .toString()
-                    .replace("-", "")
-                    .substring(0, 12)
-                    .toUpperCase();
-
-            // Buat & simpan tiket via Model
-            // cekKapasitas sudah ada di Tiket.insert()
+            // 2. Buat & simpan data tiket ke Database (Kapasitas dicek otomatis di dalam model)
             Tiket tiket = new Tiket(
                 idTiket,
-                platNomor.toUpperCase(),
+                platNomor.toUpperCase().trim(),
                 jenis
             );
+            tiket.insert(); // Akan melempar TiketException jika kapasitas mall penuh
 
-            tiket.insert(); // throws TiketException jika penuh
+            // 3. FIX: Pastikan folder 'qr' di dalam server Tomcat sudah terbuat
+            String folderQR = getServletContext().getRealPath("/qr");
+            if (folderQR != null) {
+                File directory = new File(folderQR);
+                if (!directory.exists()) {
+                    directory.mkdirs(); // Membuat folder /qr/ otomatis jika belum ada
+                }
+            }
 
-            // Generate QR Code (isi = idTiket)
-            String folderQR =
-                getServletContext().getRealPath("/qr/");
+            // 4. Generate QR Code fisik ke dalam folder
+            String fullPathQR = folderQR + File.separator + idTiket + ".png";
+            QRUtil.generateQRCode(idTiket, fullPathQR);
 
-            QRUtil.generateQRCode(
-                idTiket,
-                folderQR + idTiket + ".png"
-            );
-
-            // Kirim ke karcis.jsp
+            // 5. Kirim data sukses ke karcis.jsp
             req.setAttribute("idTiket",   idTiket);
-            req.setAttribute("platNomor", platNomor.toUpperCase());
+            req.setAttribute("platNomor", platNomor.toUpperCase().trim());
             req.setAttribute("jenis",     jenis);
-            req.setAttribute(
-                "qrImage",
-                req.getContextPath() +
-                "/qr/" + idTiket + ".png"
-            );
+            req.setAttribute("qrImage",   req.getContextPath() + "/qr/" + idTiket + ".png");
 
-            req.getRequestDispatcher("karcis.jsp")
-               .forward(req, resp);
+            req.getRequestDispatcher("karcis.jsp").forward(req, resp);
 
         } catch (TiketException e) {
-
             // Parkir penuh atau tiket bermasalah
             req.setAttribute("error", e.getMessage());
-            req.setAttribute(
-                "parkirPenuh",
-                e.isParkingFull()
-            );
-            req.getRequestDispatcher("kendaraan_masuk.jsp")
-               .forward(req, resp);
+            req.setAttribute("parkirPenuh", e.isParkingFull());
+            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
 
         } catch (DatabaseException e) {
-
+            // Error SQL / Koneksi DB
             e.printStackTrace();
-            req.setAttribute(
-                "error",
-                "Gagal menyimpan tiket: " +
-                e.getMessage()
-            );
-            req.getRequestDispatcher("kendaraan_masuk.jsp")
-               .forward(req, resp);
+            req.setAttribute("error", "Gagal menyimpan transaksi ke database: " + e.getMessage());
+            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
 
         } catch (Exception e) {
-
+            // Menangkap error ImageOutputStream atau kegagalan engine QR
             e.printStackTrace();
-            req.setAttribute(
-                "error",
-                "Gagal generate QR Code: " +
-                e.getMessage()
-            );
-            req.getRequestDispatcher("kendaraan_masuk.jsp")
-               .forward(req, resp);
+            req.setAttribute("error", "Sistem gagal generate QR Code berkas: " + e.getMessage());
+            doGet(req, resp); // FIX: Panggil doGet agar angka kapasitas di UI ter-refresh otomatis
         }
     }
 
@@ -151,14 +126,10 @@ public class KendaraanMasukServlet
             throws IOException {
 
         HttpSession session = req.getSession(false);
-
-        if (session == null ||
-                session.getAttribute("admin") == null) {
-
+        if (session == null || session.getAttribute("admin") == null) {
             resp.sendRedirect("login.jsp");
             return false;
         }
-
         return true;
     }
 }

@@ -1,17 +1,5 @@
-<%-- 
-    Document   : index
-    Created on : May 28, 2026, 2:58:13 PM
-    Author     : adira
---%>
-
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
-<!DOCTYPE html>
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>JSP Page</title>
-    </head>
-    <body>
-        <h1>Hello World!</h1>
-    </body>
-</html>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%
+    // Langsung arahkan pengunjung ke LoginServlet saat web pertama kali dibuka
+    response.sendRedirect("LoginServlet");
+%>
