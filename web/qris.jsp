@@ -5,16 +5,15 @@
         return;
     }
 
-    String idTiket   = (String) request.getAttribute("idTiket");
-    String platNomor = (String) request.getAttribute("platNomor");
-    String jenis     = (String) request.getAttribute("jenis");
+    String idTiket      = (String) request.getAttribute("idTiket");
+    String platNomor    = (String) request.getAttribute("platNomor");
+    String jenis        = (String) request.getAttribute("jenis");
+    String qrOriginalUrl = (String) request.getAttribute("qrOriginalUrl");
 
-    // FIX: pakai Number supaya aman baik Double maupun Integer
     Object totalBiayaRaw = request.getAttribute("totalBiaya");
     long totalBiaya = totalBiayaRaw != null ? ((Number) totalBiayaRaw).longValue() : 0;
 
-    // FIX: nama attribute sekarang "qrImage" sesuai dengan yang dikirim GenerateQRISServlet
-    String qrCodeUrl = (String) request.getAttribute("qrImage");
+    String qrCodeUrl = (String) request.getAttribute("qrCodeUrl");
 
     if(idTiket == null) {
         response.sendRedirect("dashboard");
@@ -50,6 +49,20 @@
     }
     @keyframes blinker {
         50% { opacity: 0.4; }
+    }
+    .simulator-box {
+        background: #fffbeb;
+        border: 1px dashed #f59e0b;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.78rem;
+        word-break: break-all;
+    }
+    .copy-btn {
+        cursor: pointer;
+        font-size: 0.75rem;
+        padding: 2px 10px;
+        border-radius: 20px;
     }
 </style>
 
@@ -120,6 +133,24 @@
                             </div>
 
                         </div>
+
+                        <%-- SANDBOX SIMULATOR HELPER - tampilkan URL asli Midtrans untuk testing --%>
+                        <% if(qrOriginalUrl != null && !qrOriginalUrl.isEmpty()) { %>
+                        <div class="px-4 pb-3">
+                            <div class="simulator-box text-start">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-warning-emphasis small">
+                                        <i class="fas fa-flask me-1"></i> Sandbox Simulator — QR Code Image URL
+                                    </span>
+                                    <button class="btn btn-warning btn-sm copy-btn"
+                                            onclick="navigator.clipboard.writeText('<%= qrOriginalUrl %>').then(() => { this.innerText='Copied!'; setTimeout(() => this.innerText='Copy', 1500); })">
+                                        Copy
+                                    </button>
+                                </div>
+                                <span class="text-muted" style="font-size:0.72rem;"><%= qrOriginalUrl %></span>
+                            </div>
+                        </div>
+                        <% } %>
 
                         <div class="p-4 bg-light bg-opacity-50 border-top">
                             <form action="ValidasiTiketServlet" method="POST">

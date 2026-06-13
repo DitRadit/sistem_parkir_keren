@@ -1,9 +1,14 @@
 package Controller;
 
+import com.midtrans.httpclient.TransactionApi;
+import org.json.JSONObject;
+import util.MidtransUtil;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -14,7 +19,6 @@ import javax.servlet.http.HttpSession;
 @WebServlet(name = "ValidasiTiketServlet", urlPatterns = {"/ValidasiTiketServlet"})
 public class ValidasiTiketServlet extends HttpServlet {
 
-    // Method helper untuk koneksi ke database sistem_parkir_qren
     private Connection getConnection() throws Exception {
         Class.forName("com.mysql.cj.jdbc.Driver");
         return DriverManager.getConnection("jdbc:mysql://localhost:3306/sistem_parkir_qren", "root", "");
@@ -23,7 +27,7 @@ public class ValidasiTiketServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        
+
         // 1. Validasi Keamanan Sesi Operator Gerbang
         HttpSession session = req.getSession(false);
         if (session == null || session.getAttribute("admin") == null) {
@@ -31,38 +35,75 @@ public class ValidasiTiketServlet extends HttpServlet {
             return;
         }
 
-        // 2. Tangkap data ID Tiket dan Total Biaya yang dikirim dari form pembayaran.jsp
+        // 2. Tangkap ID Tiket
         String idTiket = req.getParameter("idTiket");
-        String totalBiayaStr = req.getParameter("totalBiaya");
-
         if (idTiket == null || idTiket.isBlank()) {
             resp.sendRedirect("dashboard");
             return;
         }
 
         try (Connection conn = getConnection()) {
-            // 3. Query SQL untuk menutup sesi parkir kendaraan di mall
-            // Mengubah status menjadi 'SELESAI', mengisi waktu_keluar dengan jam sekarang (NOW()), 
-            // menyimpan total biaya, serta mengubah status_bayar menjadi 'SUKSES'.
-            String sql = "UPDATE tiket SET waktu_keluar = NOW(), total_biaya = ?, status = 'SELESAI', status_bayar = 'SUKSES' WHERE id_tiket = ?";
-            
-            PreparedStatement ps = conn.prepareStatement(sql);
-            
-            // Konversi total biaya kembali ke integer angka murni untuk disave ke database
-            int totalBiaya = (totalBiayaStr != null) ? Integer.parseInt(totalBiayaStr) : 0;
-            ps.setInt(1, totalBiaya);
-            ps.setString(2, idTiket);
-            
-            // Eksekusi perubahan ke database database
-            ps.executeUpdate();
 
-            // 4. SELESAI & REDIRECT: Langsung tendang balik ke Dashboard Utama Mall
-            // Menggunakan sendRedirect agar DashboardServlet memicu ulang perhitungan hitungAktif()
-            resp.sendRedirect("dashboard");
+            // Ambil transaction_id (snap_token) dan total_biaya yang sudah disimpan saat checkout
+            String transactionId = null;
+            int totalBiaya = 0;
+
+            String selectSql = "SELECT snap_token, total_biaya FROM tiket WHERE id_tiket = ?";
+            PreparedStatement selectPs = conn.prepareStatement(selectSql);
+            selectPs.setString(1, idTiket);
+            ResultSet rs = selectPs.executeQuery();
+
+            if (rs.next()) {
+                transactionId = rs.getString("snap_token");
+                totalBiaya = rs.getInt("total_biaya");
+            }
+
+            if (transactionId == null || transactionId.isBlank()) {
+                req.setAttribute("error", "Transaksi pembayaran belum dibuat.");
+                resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+                return;
+            }
+
+            // Cek status transaksi langsung ke Midtrans
+            MidtransUtil.init();
+
+            System.out.println("=== VALIDASI ===");
+            System.out.println("transactionId dari DB : " + transactionId);
+
+            JSONObject status = TransactionApi.checkTransaction(transactionId);
+
+            System.out.println("=== CEK STATUS MIDTRANS ===");
+            System.out.println(status.toString());
+            System.out.println("============================");
+
+            String transactionStatus = status.getString("transaction_status");
+            System.out.println("transaction_status : " + transactionStatus);
+
+            if (transactionStatus.equals("settlement") || transactionStatus.equals("capture")) {
+
+                // 5. Pembayaran terkonfirmasi -> tutup tiket
+                String updateSql = "UPDATE tiket SET waktu_keluar = NOW(), total_biaya = ?, status = 'SELESAI', status_bayar = 'SUKSES' WHERE id_tiket = ?";
+                PreparedStatement updatePs = conn.prepareStatement(updateSql);
+                updatePs.setInt(1, totalBiaya);
+                updatePs.setString(2, idTiket);
+                updatePs.executeUpdate();
+
+                resp.sendRedirect("dashboard");
+
+            } else if (transactionStatus.equals("pending")) {
+
+                // Belum bayar, balik ke halaman QRIS lagi
+                req.setAttribute("info", "Pembayaran belum diterima. Silakan scan QRIS terlebih dahulu.");
+                resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+
+            } else {
+                // deny, cancel, expire, failure
+                req.setAttribute("error", "Pembayaran gagal/expired (" + transactionStatus + "). Silakan ulangi.");
+                resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
-            // Jika ada ganjalan database error, amankan dengan melempar balik ke dashboard
             resp.sendRedirect("dashboard");
         }
     }
@@ -70,7 +111,6 @@ public class ValidasiTiketServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-        // Jika ada yang iseng akses lewat URL biasa, luruskan dengan mengarahkan ke doPost
         doPost(req, resp);
     }
 }
