@@ -20,6 +20,13 @@
             <i class="fas fa-arrow-right-from-bracket" style="width: 20px;"></i> Pintu Keluar (Exit)
         </a>
         
+        <%-- Menu khusus ADMIN --%>
+        <% if ("ADMIN".equals(session.getAttribute("role"))) { %>
+        <a href="UserManagementServlet" class="nav-link-custom">
+            <i class="fas fa-users-cog" style="width: 20px;"></i> Manajemen User
+        </a>
+        <% } %>
+        
         <hr class="text-muted opacity-25 my-3">
         
         <a href="LogoutServlet" class="nav-link-custom text-danger">

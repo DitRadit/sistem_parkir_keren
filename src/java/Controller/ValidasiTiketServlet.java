@@ -82,7 +82,7 @@ public class ValidasiTiketServlet extends HttpServlet {
             if (transactionStatus.equals("settlement") || transactionStatus.equals("capture")) {
 
                 // 5. Pembayaran terkonfirmasi -> tutup tiket
-                String updateSql = "UPDATE tiket SET waktu_keluar = NOW(), total_biaya = ?, status = 'SELESAI', status_bayar = 'SUKSES' WHERE id_tiket = ?";
+                String updateSql = "UPDATE tiket SET waktu_keluar = NOW(), total_biaya = ?, status = 'SELESAI', status_bayar = 'LUNAS' WHERE id_tiket = ?";
                 PreparedStatement updatePs = conn.prepareStatement(updateSql);
                 updatePs.setInt(1, totalBiaya);
                 updatePs.setString(2, idTiket);

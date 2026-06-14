@@ -174,6 +174,34 @@ public class Admin extends JDBC {
         );
     }
 
+    // ===== update() - update data admin =====
+
+    public void update()
+            throws DatabaseException {
+
+        runQuery(
+            "UPDATE admin SET " +
+            "nama = '"     + nama     + "', " +
+            "username = '" + username + "', " +
+            (password != null && !password.isEmpty()
+                ? "password = '" + password + "', "
+                : "") +
+            "role = '"     + role.name() + "' " +
+            "WHERE id_admin = '" + idAdmin + "'"
+        );
+    }
+
+    // ===== delete() - hapus admin berdasarkan id =====
+
+    public void delete(String idAdmin)
+            throws DatabaseException {
+
+        runQuery(
+            "DELETE FROM admin " +
+            "WHERE id_admin = '" + idAdmin + "'"
+        );
+    }
+
     // ===== GETTER & SETTER =====
 
     public String getIdAdmin() { return idAdmin; }

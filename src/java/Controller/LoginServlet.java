@@ -74,6 +74,10 @@ public class LoginServlet
             req.getSession()
                .setAttribute("role", admin.getRole().name());
 
+            // Simpan adminId untuk keperluan proteksi hapus akun sendiri
+            req.getSession()
+               .setAttribute("adminId", admin.getIdAdmin());
+
             resp.sendRedirect("dashboard");
 
         } catch (AuthException e) {

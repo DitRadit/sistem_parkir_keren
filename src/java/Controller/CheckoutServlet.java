@@ -134,6 +134,11 @@ public class CheckoutServlet extends HttpServlet {
                 tiket.setSnapToken(orderId); 
                 tiket.setTotalBiaya((double) totalBiaya);
                 tiket.update();
+                System.out.println("=== SIMPAN KE DB ===");
+                System.out.println("orderId yang akan disimpan: " + orderId);
+                tiket.setSnapToken(orderId);
+                tiket.update();
+                System.out.println("Update DB selesai.");
 
                 // tetap kirim transaction_id ke JSP untuk display jika perlu
                 request.setAttribute("snapToken", transactionId);
