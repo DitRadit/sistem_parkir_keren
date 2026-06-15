@@ -1,6 +1,7 @@
 package Controller;
 
 import com.midtrans.httpclient.TransactionApi;
+import model.Tiket;
 import org.json.JSONObject;
 import util.MidtransUtil;
 
@@ -28,14 +29,12 @@ public class ValidasiTiketServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // 1. Validasi Keamanan Sesi Operator Gerbang
         HttpSession session = req.getSession(false);
         if (session == null || session.getAttribute("admin") == null) {
             resp.sendRedirect("login.jsp");
             return;
         }
 
-        // 2. Tangkap ID Tiket
         String idTiket = req.getParameter("idTiket");
         if (idTiket == null || idTiket.isBlank()) {
             resp.sendRedirect("dashboard");
@@ -44,7 +43,6 @@ public class ValidasiTiketServlet extends HttpServlet {
 
         try (Connection conn = getConnection()) {
 
-            // Ambil transaction_id (snap_token) dan total_biaya yang sudah disimpan saat checkout
             String transactionId = null;
             int totalBiaya = 0;
 
@@ -64,7 +62,6 @@ public class ValidasiTiketServlet extends HttpServlet {
                 return;
             }
 
-            // Cek status transaksi langsung ke Midtrans
             MidtransUtil.init();
 
             System.out.println("=== VALIDASI ===");
@@ -81,10 +78,18 @@ public class ValidasiTiketServlet extends HttpServlet {
 
             if (transactionStatus.equals("settlement") || transactionStatus.equals("capture")) {
 
-                // 5. Pembayaran terkonfirmasi -> tutup tiket
+                // Kalau karcis hilang, totalBiaya di DB = biaya parkir murni
+                // → tambahkan denda sekarang saat disimpan sebagai SELESAI
+                int totalFinal;
+                if (transactionId.startsWith("SQR-HILANG-")) {
+                    totalFinal = totalBiaya + Tiket.DENDA_KARCIS_HILANG;
+                } else {
+                    totalFinal = totalBiaya;
+                }
+
                 String updateSql = "UPDATE tiket SET waktu_keluar = NOW(), total_biaya = ?, status = 'SELESAI', status_bayar = 'LUNAS' WHERE id_tiket = ?";
                 PreparedStatement updatePs = conn.prepareStatement(updateSql);
-                updatePs.setInt(1, totalBiaya);
+                updatePs.setInt(1, totalFinal);
                 updatePs.setString(2, idTiket);
                 updatePs.executeUpdate();
 
@@ -92,14 +97,22 @@ public class ValidasiTiketServlet extends HttpServlet {
 
             } else if (transactionStatus.equals("pending")) {
 
-                // Belum bayar, balik ke halaman QRIS lagi
                 req.setAttribute("info", "Pembayaran belum diterima. Silakan scan QRIS terlebih dahulu.");
-                resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+                if (transactionId.startsWith("SQR-HILANG-")) {
+                    resp.sendRedirect("KarcisHilangServlet?idTiket=" + idTiket);
+                } else {
+                    resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+                }
 
             } else {
-                // deny, cancel, expire, failure
+
                 req.setAttribute("error", "Pembayaran gagal/expired (" + transactionStatus + "). Silakan ulangi.");
-                resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+                if (transactionId.startsWith("SQR-HILANG-")) {
+                    resp.sendRedirect("KarcisHilangServlet?idTiket=" + idTiket);
+                } else {
+                    resp.sendRedirect("CheckoutServlet?idTiket=" + idTiket);
+                }
+
             }
 
         } catch (Exception e) {

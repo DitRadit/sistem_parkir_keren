@@ -138,7 +138,7 @@ public class KarcisHilangServlet extends HttpServlet {
 
             // Update DB
             tiketDitemukan.setSnapToken(orderId);
-            tiketDitemukan.setTotalBiaya((double) totalBiaya);
+            tiketDitemukan.setTotalBiaya((double) biayaParkir);
             tiketDitemukan.update();
 
             // Forward ke qris_hilang.jsp (bukan qris.jsp biasa)
