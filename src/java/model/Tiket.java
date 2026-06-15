@@ -30,6 +30,7 @@ public class Tiket extends JDBC
     public static final double TARIF_MOTOR = 2000;
     public static final double TARIF_MOBIL = 5000;
     public static final int KAPASITAS_MAKS = 50;
+    public static final int DENDA_KARCIS_HILANG = 50000;
 
     // ===== ATRIBUT =====
     private String        idTiket;
@@ -162,6 +163,39 @@ public class Tiket extends JDBC
 
         throw new TiketException(
             "Tiket '" + idTiket + "' tidak ditemukan.",
+            TiketException.TIKET_NOT_FOUND
+        );
+    }
+    
+    // ===== findByPlat() - cari tiket aktif berdasarkan plat nomor =====
+    // Untuk kasus karcis hilang (manual checkout)
+
+    public Tiket findByPlat(String platNomor)
+            throws DatabaseException,
+                   TiketException {
+
+        ResultSet rs = getData(
+            "SELECT * FROM tiket " +
+            "WHERE plat_nomor = '" + platNomor + "' " +
+            "AND status = 'AKTIF' " +
+            "ORDER BY waktu_masuk DESC " +
+            "LIMIT 1"
+        );
+
+        try {
+            if (rs.next()) {
+                return toModel(rs);
+            }
+        } catch (Exception e) {
+            setMessage(e.getMessage());
+            throw new DatabaseException(
+                "Gagal mencari tiket by plat: " + platNomor,
+                e
+            );
+        }
+
+        throw new TiketException(
+            "Tidak ada kendaraan aktif dengan plat '" + platNomor + "'.",
             TiketException.TIKET_NOT_FOUND
         );
     }

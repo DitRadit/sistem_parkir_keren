@@ -85,6 +85,7 @@
                                         <th>JENIS</th>
                                         <th>WAKTU MASUK</th>
                                         <th class="text-center">AKSI</th>
+                                        <th class="text-center">KARCIS HILANG</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -105,6 +106,11 @@
                                                 <td class="text-center">
                                                     <a href="CheckoutServlet?idTiket=<%= t.getIdTiket() %>" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold shadow-sm">
                                                         <i class="fas fa-cash-register me-1"></i> Out / Bayar
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <a href="KarcisHilangServlet?idTiket=<%= t.getIdTiket()%>" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i> Karcis Hilang
                                                     </a>
                                                 </td>
                                             </tr>
