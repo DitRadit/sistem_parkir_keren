@@ -1,13 +1,5 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
-/**
- *
- * @author LENOVO
- */
 public class Motor extends Kendaraan {
 
     private String tipeMotor;
@@ -23,5 +15,10 @@ public class Motor extends Kendaraan {
 
     public void setTipeMotor(String tipeMotor) {
         this.tipeMotor = tipeMotor;
+    }
+
+    @Override
+    public double getTarifPerJam() {
+        return Tiket.TARIF_MOTOR;
     }
 }

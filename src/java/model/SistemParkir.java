@@ -1,13 +1,6 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
-/**
- *
- * @author LENOVO
- */
+import exception.DatabaseException;
 import java.util.ArrayList;
 
 public class SistemParkir {
@@ -46,8 +39,8 @@ public class SistemParkir {
         this.kapasitasMaks = kapasitasMaks;
     }
 
-    public boolean cekKapasitas() {
-        return daftarKendaraan.size() < kapasitasMaks;
+    public boolean cekKapasitas() throws DatabaseException {
+        return hitungKendaraanAktif() < kapasitasMaks;
     }
 
     public void kendaraanMasuk(Kendaraan kendaraan, Tiket tiket) {
@@ -55,8 +48,8 @@ public class SistemParkir {
         daftarTiket.add(tiket);
     }
 
-    public int hitungKendaraanAktif() {
-        return daftarKendaraan.size();
+    public int hitungKendaraanAktif() throws DatabaseException {
+        return new Tiket().hitungAktif();
     }
 
     public double hitungBiaya(int jam) {

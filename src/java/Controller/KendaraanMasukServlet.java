@@ -6,6 +6,7 @@ package Controller;
 
 import exception.DatabaseException;
 import exception.TiketException;
+import model.SistemParkir;
 import model.Tiket;
 import util.QRUtil;
 
@@ -28,12 +29,12 @@ public class KendaraanMasukServlet extends HttpServlet {
         if (!isLoggedIn(req, resp)) return;
 
         try {
-            Tiket tiketModel = new Tiket();
-            int jumlahAktif  = tiketModel.hitungAktif();
+            SistemParkir sistemParkir = new SistemParkir(Tiket.KAPASITAS_MAKS);
+            int jumlahAktif = sistemParkir.hitungKendaraanAktif();
 
-            req.setAttribute("jumlahAktif",   jumlahAktif);
+            req.setAttribute("jumlahAktif", jumlahAktif);
             req.setAttribute("kapasitasMaks", Tiket.KAPASITAS_MAKS);
-            req.setAttribute("parkirPenuh",   jumlahAktif >= Tiket.KAPASITAS_MAKS);
+            req.setAttribute("parkirPenuh", jumlahAktif >= sistemParkir.getKapasitasMaks());
 
         } catch (DatabaseException e) {
             e.printStackTrace();

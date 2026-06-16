@@ -1,16 +1,9 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
-/**
- *
- * @author LENOVO
- */
 public class QRCode {
 
     private String dataQR;
+    private String localFileName;
 
     public QRCode(String dataQR) {
         this.dataQR = dataQR;
@@ -22,6 +15,14 @@ public class QRCode {
 
     public void setDataQR(String dataQR) {
         this.dataQR = dataQR;
+    }
+
+    public String getLocalFileName() {
+        return localFileName;
+    }
+
+    public void setLocalFileName(String localFileName) {
+        this.localFileName = localFileName;
     }
 
     public void tampilkanQR() {

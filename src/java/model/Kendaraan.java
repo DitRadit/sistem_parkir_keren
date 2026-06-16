@@ -1,14 +1,6 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
-/**
- *
- * @author LENOVO
- */
-public class Kendaraan {
+public abstract class Kendaraan {
 
     private String platNomor;
     private String jenis;
@@ -32,5 +24,15 @@ public class Kendaraan {
 
     public void setJenis(String jenis) {
         this.jenis = jenis;
+    }
+
+    public abstract double getTarifPerJam();
+
+    public static Kendaraan dariJenis(String platNomor, String jenis) {
+        if ("Mobil".equalsIgnoreCase(jenis)) {
+            return new Mobil(platNomor, "Standar");
+        } else {
+            return new Motor(platNomor, "Standar");
+        }
     }
 }

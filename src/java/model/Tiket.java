@@ -377,11 +377,8 @@ public class Tiket extends JDBC
     }
 
     public double kalkulasiBiaya() {
-        double tarif = "Motor".equalsIgnoreCase(jenis)
-            ? TARIF_MOTOR
-            : TARIF_MOBIL;
-
-        return hitungDurasiJam() * tarif;
+        Kendaraan kendaraan = Kendaraan.dariJenis(platNomor, jenis);
+        return hitungDurasiJam() * kendaraan.getTarifPerJam();
     }
 
     // ===== GETTER & SETTER =====

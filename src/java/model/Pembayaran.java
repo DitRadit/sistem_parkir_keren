@@ -1,12 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-
-/**
- *
- * @author LENOVO
- */
 package model;
 
 public abstract class Pembayaran {
@@ -35,5 +26,5 @@ public abstract class Pembayaran {
         this.statusBayar = statusBayar;
     }
 
-    public abstract void prosesPembayaran();
+    public abstract void prosesPembayaran() throws Exception;
 }

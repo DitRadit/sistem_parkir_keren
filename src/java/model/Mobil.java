@@ -1,13 +1,5 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
-/**
- *
- * @author LENOVO
- */
 public class Mobil extends Kendaraan {
 
     private String tipeMobil;
@@ -23,5 +15,10 @@ public class Mobil extends Kendaraan {
 
     public void setTipeMobil(String tipeMobil) {
         this.tipeMobil = tipeMobil;
+    }
+
+    @Override
+    public double getTarifPerJam() {
+        return Tiket.TARIF_MOBIL;
     }
 }
