@@ -58,7 +58,7 @@
         animation: blinker 1.5s linear infinite;
     }
     @keyframes blinker {
-        50% { opacity: 0.4; }
+        50\% { opacity: 0.4; }
     }
     .simulator-box {
         background: #fffbeb;
