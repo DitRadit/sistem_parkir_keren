@@ -47,7 +47,7 @@ public class SistemParkir {
         daftarKendaraan.add(kendaraan);
         daftarTiket.add(tiket);
     }
-
+ 
     public int hitungKendaraanAktif() throws DatabaseException {
         return new Tiket().hitungAktif();
     }
